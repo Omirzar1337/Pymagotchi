@@ -23,22 +23,23 @@ class Tamagotchi:
             self.mood = "Neutral"
 
     def update(self):
-        self.hunger = max(0, self.hunger - random.randint(1, 3))
-        self.happiness = max(0, self.happiness - random.randint(1, 2))
+        # Slower stat decrease
+        self.hunger = max(0, self.hunger - random.randint(1, 2))  # Reduced from 1-3 to 1-2
+        self.happiness = max(0, self.happiness - random.randint(0, 1))  # Reduced from 1-2 to 0-1
         if self.hunger <= 20 or self.happiness <= 20:
-            self.health = max(0, self.health - random.randint(1, 5))
+            self.health = max(0, self.health - random.randint(1, 3))  # Reduced from 1-5 to 1-3
         if self.health <= 0:
             self.is_alive = False
         self.update_mood()
 
     def feed(self):
-        self.hunger = min(100, self.hunger + 20)
-        self.happiness = min(100, self.happiness + 10)
+        self.hunger = min(100, self.hunger + 30)  # Increased from 20 to 30
+        self.happiness = min(100, self.happiness + 15)  # Increased from 10 to 15
         messagebox.showinfo("Feed", f"You fed {self.name}. They look happier!")
 
     def play(self):
-        self.happiness = min(100, self.happiness + 20)
-        self.hunger = max(0, self.hunger - 10)
+        self.happiness = min(100, self.happiness + 30)  # Increased from 20 to 30
+        self.hunger = max(0, self.hunger - 10)  # Unchanged
         messagebox.showinfo("Play", f"You played with {self.name}. They had fun!")
 
 class RoundedButton(tk.Canvas):
@@ -132,10 +133,24 @@ class TamagotchiApp:
         self.status_label = tk.Label(root, text="", font=("Arial", 14), bg=self.status_bg, fg=self.status_fg, padx=10, pady=10, bd=0, relief="flat")
         self.status_label.pack(pady=10)
 
+        # ASCII animation label
+        self.animation_label = tk.Label(root, text="", font=("Courier", 12), bg=self.bg_color, fg=self.text_color)
+        self.animation_label.pack(pady=10)
+
         # Buttons (initially hidden)
         self.feed_button = RoundedButton(root, text="Feed", radius=20, bg=self.button_color, fg="white", font=("Arial", 12), command=self.feed_pet, width=100, height=40)
         self.play_button = RoundedButton(root, text="Play", radius=20, bg=self.button_color, fg="white", font=("Arial", 12), command=self.play_with_pet, width=100, height=40)
         self.quit_button = RoundedButton(root, text="Quit", radius=20, bg="#FF4500", fg="white", font=("Arial", 12), command=root.quit, width=100, height=40)
+
+        # Animation frames
+        self.animation_frames = {
+            "Happy": ["(＾▽＾)", "(＾ω＾)", "(＾▽＾)", "(＾ω＾)"],
+            "Hungry": ["(⊙_⊙)", "(⊙︿⊙)", "(⊙_⊙)", "(⊙︿⊙)"],
+            "Sick": ["(≧﹏≦)", "(╥﹏╥)", "(≧﹏≦)", "(╥﹏╥)"],
+            "Neutral": ["(￣ー￣)", "(￣ω￣)", "(￣ー￣)", "(￣ω￣)"],
+            "Dead": ["(✖╭╮✖)", "(✖﹏✖)", "(✖╭╮✖)", "(✖﹏✖)"]
+        }
+        self.current_frame = 0
 
     def start_game(self):
         pet_name = self.name_entry.get().strip()
@@ -153,7 +168,9 @@ class TamagotchiApp:
         self.play_button.pack(side=tk.LEFT, padx=10)
         self.quit_button.pack(side=tk.LEFT, padx=10)
 
+        # Start the mood animation loop
         self.update_pet_status()
+        self.play_mood_animation()
 
     def update_pet_status(self):
         if self.pet:
@@ -171,7 +188,15 @@ class TamagotchiApp:
             self.status_label.config(text=status_text)
 
             if self.pet.is_alive:
-                self.root.after(2000, self.update_pet_status)
+                self.root.after(5000, self.update_pet_status)  # Update every 5 seconds (increased from 2 seconds)
+
+    def play_mood_animation(self):
+        if self.pet:
+            mood = self.pet.mood if self.pet.is_alive else "Dead"
+            frames = self.animation_frames[mood]
+            self.animation_label.config(text=frames[self.current_frame])
+            self.current_frame = (self.current_frame + 1) % len(frames)
+            self.root.after(500, self.play_mood_animation)  # Update every 500ms
 
     def disable_buttons(self):
         self.feed_button.config(state=tk.DISABLED)
@@ -180,10 +205,37 @@ class TamagotchiApp:
     def feed_pet(self):
         if self.pet and self.pet.is_alive:
             self.pet.feed()
+            self.show_eating_animation()
 
     def play_with_pet(self):
         if self.pet and self.pet.is_alive:
             self.pet.play()
+            self.show_playing_animation()
+
+    def show_eating_animation(self):
+        eating_frames = [
+            "(っ˘ڡ˘ς)",
+            "(づ｡◕‿‿◕｡)づ",
+            "(っ˘ڡ˘ς)",
+            "(づ｡◕‿‿◕｡)づ"
+        ]
+        self.play_animation(eating_frames)
+
+    def show_playing_animation(self):
+        playing_frames = [
+            "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧",
+            "(ﾉ^_^)ﾉ",
+            "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧",
+            "(ﾉ^_^)ﾉ"
+        ]
+        self.play_animation(playing_frames)
+
+    def play_animation(self, frames):
+        for frame in frames:
+            self.animation_label.config(text=frame)
+            self.root.update()
+            time.sleep(0.5)
+        self.play_mood_animation()  # Resume mood animation
 
 if __name__ == "__main__":
     root = tk.Tk()
