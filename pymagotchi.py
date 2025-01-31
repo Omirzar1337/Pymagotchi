@@ -6,41 +6,59 @@ from tkinter import messagebox
 class Tamagotchi:
     def __init__(self, name):
         self.name = name
-        self.hunger = 50
+        self.energy = 100  # Replaces hunger
         self.happiness = 50
         self.health = 100
         self.is_alive = True
         self.mood = "Neutral"
+        self.level = 1
+        self.xp = 0
 
     def update_mood(self):
         if self.health <= 30:
             self.mood = "Sick"
-        elif self.hunger <= 20:
-            self.mood = "Hungry"
+        elif self.energy <= 20:
+            self.mood = "Tired"
         elif self.happiness >= 80:
             self.mood = "Happy"
         else:
             self.mood = "Neutral"
 
     def update(self):
-        # Slower stat decrease
-        self.hunger = max(0, self.hunger - random.randint(1, 2))  # Reduced from 1-3 to 1-2
-        self.happiness = max(0, self.happiness - random.randint(0, 1))  # Reduced from 1-2 to 0-1
-        if self.hunger <= 20 or self.happiness <= 20:
-            self.health = max(0, self.health - random.randint(1, 3))  # Reduced from 1-5 to 1-3
+        # Passive happiness growth
+        self.happiness = min(100, self.happiness + random.randint(1, 2))
+
+        # Energy decreases slowly
+        self.energy = max(0, self.energy - random.randint(0, 1))
+
+        # Health decreases if energy is too low
+        if self.energy <= 20:
+            self.health = max(0, self.health - random.randint(1, 2))
+
         if self.health <= 0:
             self.is_alive = False
+
+        # Gain XP over time
+        self.xp += 1
+        if self.xp >= 10 * self.level:  # Level up every 10 XP per level
+            self.level_up()
+
         self.update_mood()
 
+    def level_up(self):
+        self.level += 1
+        self.xp = 0
+        return f"{self.name} has reached level {self.level}!"
+
     def feed(self):
-        self.hunger = min(100, self.hunger + 30)  # Increased from 20 to 30
-        self.happiness = min(100, self.happiness + 15)  # Increased from 10 to 15
-        messagebox.showinfo("Feed", f"You fed {self.name}. They look happier!")
+        self.energy = min(100, self.energy + 30)
+        self.happiness = min(100, self.happiness + 10)
+        return f"You fed {self.name}. They look happier!"
 
     def play(self):
-        self.happiness = min(100, self.happiness + 30)  # Increased from 20 to 30
-        self.hunger = max(0, self.hunger - 10)  # Unchanged
-        messagebox.showinfo("Play", f"You played with {self.name}. They had fun!")
+        self.happiness = min(100, self.happiness + 20)
+        self.energy = max(0, self.energy - 10)
+        return f"You played with {self.name}. They had fun!"
 
 class RoundedButton(tk.Canvas):
     def __init__(self, master=None, text="", radius=25, bg="#00CED1", fg="white", font=("Arial", 12), command=None, **kwargs):
@@ -133,6 +151,10 @@ class TamagotchiApp:
         self.status_label = tk.Label(root, text="", font=("Arial", 14), bg=self.status_bg, fg=self.status_fg, padx=10, pady=10, bd=0, relief="flat")
         self.status_label.pack(pady=10)
 
+        # Message label (for in-window messages)
+        self.message_label = tk.Label(root, text="", font=("Arial", 12), bg=self.bg_color, fg=self.text_color)
+        self.message_label.pack(pady=10)
+
         # ASCII animation label
         self.animation_label = tk.Label(root, text="", font=("Courier", 12), bg=self.bg_color, fg=self.text_color)
         self.animation_label.pack(pady=10)
@@ -145,7 +167,7 @@ class TamagotchiApp:
         # Animation frames
         self.animation_frames = {
             "Happy": ["(＾▽＾)", "(＾ω＾)", "(＾▽＾)", "(＾ω＾)"],
-            "Hungry": ["(⊙_⊙)", "(⊙︿⊙)", "(⊙_⊙)", "(⊙︿⊙)"],
+            "Tired": ["(⊙_⊙)", "(⊙︿⊙)", "(⊙_⊙)", "(⊙︿⊙)"],
             "Sick": ["(≧﹏≦)", "(╥﹏╥)", "(≧﹏≦)", "(╥﹏╥)"],
             "Neutral": ["(￣ー￣)", "(￣ω￣)", "(￣ー￣)", "(￣ω￣)"],
             "Dead": ["(✖╭╮✖)", "(✖﹏✖)", "(✖╭╮✖)", "(✖﹏✖)"]
@@ -155,7 +177,7 @@ class TamagotchiApp:
     def start_game(self):
         pet_name = self.name_entry.get().strip()
         if not pet_name:
-            messagebox.showwarning("Name Required", "Please enter a name for your pet.")
+            self.show_message("Please enter a name for your pet.")
             return
 
         self.pet = Tamagotchi(pet_name)
@@ -177,10 +199,11 @@ class TamagotchiApp:
             self.pet.update()
             status_text = (
                 f"{self.pet.name}'s Status:\n"
-                f"Hunger: {self.pet.hunger}/100\n"
+                f"Energy: {self.pet.energy}/100\n"
                 f"Happiness: {self.pet.happiness}/100\n"
                 f"Health: {self.pet.health}/100\n"
-                f"Mood: {self.pet.mood}"
+                f"Mood: {self.pet.mood}\n"
+                f"Level: {self.pet.level} (XP: {self.pet.xp}/{10 * self.pet.level})"
             )
             if not self.pet.is_alive:
                 status_text += "\nOh no! Your pet has passed away..."
@@ -188,7 +211,7 @@ class TamagotchiApp:
             self.status_label.config(text=status_text)
 
             if self.pet.is_alive:
-                self.root.after(5000, self.update_pet_status)  # Update every 5 seconds (increased from 2 seconds)
+                self.root.after(5000, self.update_pet_status)  # Update every 5 seconds
 
     def play_mood_animation(self):
         if self.pet:
@@ -204,13 +227,22 @@ class TamagotchiApp:
 
     def feed_pet(self):
         if self.pet and self.pet.is_alive:
-            self.pet.feed()
+            message = self.pet.feed()
+            self.show_message(message)
             self.show_eating_animation()
 
     def play_with_pet(self):
         if self.pet and self.pet.is_alive:
-            self.pet.play()
+            message = self.pet.play()
+            self.show_message(message)
             self.show_playing_animation()
+
+    def show_message(self, message):
+        self.message_label.config(text=message)
+        self.root.after(3000, self.clear_message)  # Clear message after 3 seconds
+
+    def clear_message(self):
+        self.message_label.config(text="")
 
     def show_eating_animation(self):
         eating_frames = [
